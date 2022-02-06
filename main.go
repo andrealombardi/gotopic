@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -20,8 +21,10 @@ const DefaultRegion = "eu-west-1"
 func main() {
 
 	region := flag.String("region", DefaultRegion, "Override the default region")
-	topicArn := flag.Arg(0)
 	flag.Parse()
+	topicArn := flag.Arg(0)
+
+	log.Println(topicArn)
 
 	if topicArn == "" {
 		fmt.Println("Usage: gotopic [-region] topic-arn")
@@ -53,8 +56,12 @@ func main() {
 		for {
 			messageOutput, _ := sqssvc.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{QueueUrl: &queueURL})
 			for _, message := range messageOutput.Messages {
-				log.Println("got message")
-				log.Println(*message.Body)
+
+				var body map[string]interface{}
+				if err := json.Unmarshal([]byte(*message.Body), &body); err != nil {
+					panic(err)
+				}
+				log.Printf("Message => \n%v\n", body["Message"])
 			}
 		}
 	}()
