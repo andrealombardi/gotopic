@@ -24,8 +24,6 @@ func main() {
 	flag.Parse()
 	topicArn := flag.Arg(0)
 
-	log.Println(topicArn)
-
 	if topicArn == "" {
 		fmt.Println("Usage: gotopic [-region] topic-arn")
 		flag.PrintDefaults()
@@ -59,7 +57,7 @@ func main() {
 
 				var body map[string]interface{}
 				if err := json.Unmarshal([]byte(*message.Body), &body); err != nil {
-					panic(err)
+					log.Fatal(err)
 				}
 				log.Printf("Message => \n%v\n", body["Message"])
 			}
@@ -169,6 +167,7 @@ func NewGetAccount(stssvc *sts.STS) GetAccount {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
+		log.Printf("using aws account: %s\n", *callerIdentity.Account)
 		return *callerIdentity.Account
 	}
 }
