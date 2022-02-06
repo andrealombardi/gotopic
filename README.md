@@ -3,7 +3,7 @@
 Receive SNS notifications in your terminal (and a shameless ripoff of [ontopic](https://github.com/ziggy42/ontopic), but written in go.)
 
 `gotopic` creates a temporary SQS queue subscribed to the topic and polls it. 
-Before the process exits the created resources are removed.
+On exit the created resources are removed.
 
 ## Installation
 
