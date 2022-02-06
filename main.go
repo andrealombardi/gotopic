@@ -19,13 +19,15 @@ const DefaultRegion = "eu-west-1"
 
 func main() {
 
-	if len(os.Args) != 2 {
-		log.Fatal("You must specify the topic arn")
-	}
-	topicArn := os.Args[1]
-
 	region := flag.String("region", DefaultRegion, "Override the default region")
+	topicArn := flag.Arg(0)
 	flag.Parse()
+
+	if topicArn == "" {
+		fmt.Println("Usage: gotopic [-region] topic-arn")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -39,8 +41,8 @@ func main() {
 	deleteQueue := NewDeleteQueue(sqssvc)
 	createSubscription := NewCreateSubscription(snssvc, topicArn)
 	deleteSubscription := NewDeleteSubscription(snssvc)
-
 	ctx := context.Background()
+
 	accountId := getAccountId(ctx)
 	queueURL, queueARN := createQueue(ctx, *region, accountId, topicArn)
 	defer deleteQueue(ctx, queueURL)
@@ -51,6 +53,7 @@ func main() {
 		for {
 			messageOutput, _ := sqssvc.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{QueueUrl: &queueURL})
 			for _, message := range messageOutput.Messages {
+				log.Println("got message")
 				log.Println(*message.Body)
 			}
 		}
@@ -73,7 +76,9 @@ func NewCreateQueue(sqssvc *sqs.SQS) CreateQueue {
                 "Statement": [
                     {
                        "Effect": "Allow",
-                       "Principal": "*",
+                       "Principal": {
+                            "Service": "sns.amazonaws.com"
+                        },
                        "Action": "SQS:SendMessage",
                        "Resource": "arn:aws:sqs:%s:%s:%s",
                        "Condition": {
