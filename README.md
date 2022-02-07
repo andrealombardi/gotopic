@@ -8,9 +8,7 @@ On exit the created resources are removed.
 ## Installation
 
 ```
-❯ git clone https://github.com/andrealombardi/gotopic.git
-❯ cd gotopic
-❯ go install
+❯ go get github.com/andrealombardi/gotopic
 ```
 
 ## Usage
