@@ -14,7 +14,7 @@ On exit the created resources are removed.
 ## Usage
 Basic usage:
 ```
-gotopic <TOPIC_ARN>
+❯ gotopic <TOPIC_ARN>
 ```
 
 For more see `-h`:
