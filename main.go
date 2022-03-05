@@ -128,7 +128,7 @@ func NewCreateQueue(sqssvc *sqs.SQS) CreateQueue {
 			},
 		})
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 		fmt.Printf(paint(Cyan, "created queue with url: %s\n"), *createQueueOutput.QueueUrl)
 
@@ -140,7 +140,7 @@ func NewCreateQueue(sqssvc *sqs.SQS) CreateQueue {
 		}
 		getAttributeOutput, err := sqssvc.GetQueueAttributesWithContext(ctx, sqsAttributesRequest)
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 		fmt.Printf(paint(Cyan, "queue arn: %s\n"), *getAttributeOutput.Attributes[sqs.QueueAttributeNameQueueArn])
 		return *createQueueOutput.QueueUrl, *getAttributeOutput.Attributes[sqs.QueueAttributeNameQueueArn]
@@ -167,7 +167,7 @@ func NewCreateSubscription(snssvc *sns.SNS, topicArn string) CreateTopicSubscrip
 			TopicArn:              aws.String(topicArn),
 		})
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 		fmt.Printf(paint(Cyan, "created subscription: %s\n"), *result.SubscriptionArn)
 
@@ -192,7 +192,7 @@ func NewGetAccount(stssvc *sts.STS) GetAccount {
 	return func(ctx context.Context) string {
 		callerIdentity, err := stssvc.GetCallerIdentityWithContext(ctx, &sts.GetCallerIdentityInput{})
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 		fmt.Printf(paint(Cyan, "using aws account: %s\n"), *callerIdentity.Account)
 		return *callerIdentity.Account
