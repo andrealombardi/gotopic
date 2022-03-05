@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
+	"os/signal"
+	"runtime"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -16,7 +18,19 @@ import (
 	"github.com/google/uuid"
 )
 
-const DefaultRegion = "eu-west-1"
+const (
+	DefaultRegion = "eu-west-1"
+
+	Reset  = "\033[0m"
+	Red    = "\033[31m"
+	Green  = "\033[32m"
+	Yellow = "\033[33m"
+	Blue   = "\033[34m"
+	Purple = "\033[35m"
+	Cyan   = "\033[36m"
+	Gray   = "\033[37m"
+	White  = "\033[97m"
+)
 
 func main() {
 
@@ -57,15 +71,26 @@ func main() {
 
 				var body map[string]interface{}
 				if err := json.Unmarshal([]byte(*message.Body), &body); err != nil {
-					log.Fatal(err)
+					fmt.Println(err)
 				}
-				log.Printf("Message => \n%v\n", body["Message"])
+
+				fmt.Printf(paint(Green, "\n\n%v\n\n"), body["Message"])
+
+				_, _ = sqssvc.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
+					QueueUrl:      &queueURL,
+					ReceiptHandle: message.ReceiptHandle,
+				})
+
 			}
 		}
 	}()
 
-	log.Println("Press Enter to stop")
-	fmt.Scanln()
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	fmt.Println(paint(Red, "\nPress CTRL + C to exit\n"))
+	<-c
+	fmt.Println()
+
 }
 
 type CreateQueue func(ctx context.Context, region, accountId, topicArn string) (queueURL, queueARN string)
@@ -74,7 +99,7 @@ func NewCreateQueue(sqssvc *sqs.SQS) CreateQueue {
 	return func(ctx context.Context, region, accountId, topicArn string) (string, string) {
 
 		queueName := fmt.Sprint(uuid.New())
-		log.Printf("region: %s, accountId: %s, queueName: %s\n", region, accountId, queueName)
+		fmt.Printf(paint(Cyan, "region: %s, accountId: %s, queueName: %s\n"), region, accountId, queueName)
 
 		policy := fmt.Sprintf(`{
                 "Version": "2012-10-17",
@@ -103,9 +128,9 @@ func NewCreateQueue(sqssvc *sqs.SQS) CreateQueue {
 			},
 		})
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Println(err)
 		}
-		log.Printf("created queue with url: %s\n", *createQueueOutput.QueueUrl)
+		fmt.Printf(paint(Cyan, "created queue with url: %s\n"), *createQueueOutput.QueueUrl)
 
 		sqsAttributesRequest := &sqs.GetQueueAttributesInput{
 			QueueUrl: createQueueOutput.QueueUrl,
@@ -115,9 +140,9 @@ func NewCreateQueue(sqssvc *sqs.SQS) CreateQueue {
 		}
 		getAttributeOutput, err := sqssvc.GetQueueAttributesWithContext(ctx, sqsAttributesRequest)
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Println(err)
 		}
-		log.Printf("queue arn: %s\n", *getAttributeOutput.Attributes[sqs.QueueAttributeNameQueueArn])
+		fmt.Printf(paint(Cyan, "queue arn: %s\n"), *getAttributeOutput.Attributes[sqs.QueueAttributeNameQueueArn])
 		return *createQueueOutput.QueueUrl, *getAttributeOutput.Attributes[sqs.QueueAttributeNameQueueArn]
 	}
 }
@@ -126,6 +151,7 @@ type DeleteQueue func(ctx context.Context, queueArn string)
 
 func NewDeleteQueue(sqssvc *sqs.SQS) DeleteQueue {
 	return func(ctx context.Context, queueUrl string) {
+		fmt.Printf(paint(Cyan, "cleanup: deleting queue %s\n"), queueUrl)
 		sqssvc.DeleteQueueWithContext(ctx, &sqs.DeleteQueueInput{QueueUrl: aws.String(queueUrl)})
 	}
 }
@@ -141,9 +167,9 @@ func NewCreateSubscription(snssvc *sns.SNS, topicArn string) CreateTopicSubscrip
 			TopicArn:              aws.String(topicArn),
 		})
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Println(err)
 		}
-		log.Printf("created subscription: %s\n", *result.SubscriptionArn)
+		fmt.Printf(paint(Cyan, "created subscription: %s\n"), *result.SubscriptionArn)
 
 		return *result.SubscriptionArn
 	}
@@ -153,6 +179,7 @@ type DeleteSubscription func(ctx context.Context, topicArn string)
 
 func NewDeleteSubscription(snssvc *sns.SNS) DeleteSubscription {
 	return func(ctx context.Context, topicArn string) {
+		fmt.Printf(paint(Cyan, "cleanup: deleting subscription to topic %s\n"), topicArn)
 		snssvc.UnsubscribeWithContext(ctx, &sns.UnsubscribeInput{
 			SubscriptionArn: aws.String(topicArn),
 		})
@@ -165,9 +192,16 @@ func NewGetAccount(stssvc *sts.STS) GetAccount {
 	return func(ctx context.Context) string {
 		callerIdentity, err := stssvc.GetCallerIdentityWithContext(ctx, &sts.GetCallerIdentityInput{})
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Println(err)
 		}
-		log.Printf("using aws account: %s\n", *callerIdentity.Account)
+		fmt.Printf(paint(Cyan, "using aws account: %s\n"), *callerIdentity.Account)
 		return *callerIdentity.Account
 	}
+}
+
+func paint(color, text string) string {
+	if runtime.GOOS == "windows" {
+		return text
+	}
+	return color + text + Reset
 }
